@@ -35,6 +35,12 @@ function enviarCorreoRecuperacion(correo, contrasena) {
     });
 }
 
+
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+
 // RECUPERAR CONTRASEÑA
 app.post('/recuperar', (req, res) => {
     const { correo } = req.body;
@@ -59,10 +65,6 @@ app.post('/recuperar', (req, res) => {
         }
     );
 });
-
-const app = express();
-app.use(cors());
-app.use(express.json());
 
 const db = mysql.createConnection({
     host: 'zephyr.proxy.rlwy.net',
