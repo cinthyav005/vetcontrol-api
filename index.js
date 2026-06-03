@@ -2,6 +2,64 @@ const express = require('express');
 const mysql = require('mysql2');
 const cors = require('cors');
 
+const https = require('https');
+
+function enviarCorreoRecuperacion(correo, contrasena) {
+    const data = JSON.stringify({
+        service_id: 'service_3wuh0xr',
+        template_id: 'template_s9ewxea',
+        user_id: '-0Uj2D3OUJd4fDr6Dzdh2',
+        template_params: {
+            to_email: correo,
+            contrasena: contrasena
+        }
+    });
+
+    const options = {
+        hostname: 'api.emailjs.com',
+        path: '/api/v1.0/email/send',
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Content-Length': data.length
+        }
+    };
+
+    return new Promise((resolve, reject) => {
+        const req = https.request(options, (res) => {
+            resolve(res.statusCode);
+        });
+        req.on('error', reject);
+        req.write(data);
+        req.end();
+    });
+}
+
+// RECUPERAR CONTRASEÑA
+app.post('/recuperar', (req, res) => {
+    const { correo } = req.body;
+    if (!correo) {
+        return res.json({ exito: false, mensaje: 'Ingresa tu correo' });
+    }
+    db.query(
+        'SELECT contrasena FROM usuarios WHERE correo = ? AND activo = 1',
+        [correo],
+        async (err, results) => {
+            if (err) return res.json({ exito: false, mensaje: 'Error del servidor' });
+            if (results.length === 0) {
+                return res.json({ exito: false, mensaje: 'Correo no encontrado' });
+            }
+            const contrasena = results[0].contrasena;
+            try {
+                await enviarCorreoRecuperacion(correo, contrasena);
+                res.json({ exito: true, mensaje: 'Correo enviado exitosamente' });
+            } catch (e) {
+                res.json({ exito: false, mensaje: 'Error al enviar el correo' });
+            }
+        }
+    );
+});
+
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -55,18 +113,27 @@ app.get('/mascotas', (req, res) => {
 
 // CREAR MASCOTA
 app.post('/mascotas', (req, res) => {
+    console.log('Datos recibidos:', req.body);
     const { nombre, especie, raza, sexo, fecha_nacimiento, peso_kg, nombre_duenio, telefono, direccion } = req.body;
     db.query(
         'INSERT INTO duenios (nombre, telefono, direccion) VALUES (?, ?, ?)',
         [nombre_duenio, telefono, direccion],
         (err, result) => {
-            if (err) return res.json({ exito: false, error: err.message });
+            if (err) {
+                console.log('Error duenio:', err.message);
+                return res.json({ exito: false, error: err.message });
+            }
             const duenio_id = result.insertId;
+            console.log('Duenio creado con id:', duenio_id);
             db.query(
                 'INSERT INTO mascotas (nombre, especie, raza, sexo, fecha_nacimiento, peso_kg, duenio_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
                 [nombre, especie, raza, sexo, fecha_nacimiento, peso_kg, duenio_id],
                 (err, result) => {
-                    if (err) return res.json({ exito: false, error: err.message });
+                    if (err) {
+                        console.log('Error mascota:', err.message);
+                        return res.json({ exito: false, error: err.message });
+                    }
+                    console.log('Mascota creada con id:', result.insertId);
                     res.json({ exito: true, id: result.insertId });
                 }
             );
